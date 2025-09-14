@@ -1,139 +1,128 @@
-# uvc-util
-USB Video Class (UVC) control management utility for Mac OS X
+# UVC Camera GUI
 
-This code arose from a need for a command-line utility on Mac OS X that could query and modify UVC camera controls (like contrast and brightness).  It presently implements all Terminal and Processing Unit controls available under the [1.1 standard](http://www.cajunbot.com/wiki/images/8/85/USB_Video_Class_1.1.pdf "UVC 1.1 PDF").  Additional [1.5 standard](https://www.usb.org/sites/default/files/USB_Video_Class_1_5.zip) Terminal and Processing Unit controls were added for the 1.2 release of this software.
-
-Control values are implemented using a class (UVCType) that represents byte-packed data structures containing core atomic types (8-, 16-, 32-, and 64-bit integers).  Multi-component types allow fields to be named.  Another class (UVCValue) uses UVCType and a memory buffer to manage data structured according to that UVCType.  Thus, the code knows how each implemented UVC control's data is structured, which allows for per-component byte-swapping when necessary, etc.
-
-Unlike other (GUI-based) utilities, this code only makes use of the IOKit to walk the USB bus, searching for UVC-compliant devices.
+A macOS GUI application for controlling UVC-compatible USB cameras. This application provides an intuitive interface to adjust camera settings like brightness, contrast, saturation, and more, with the ability to save and load presets as YAML files.
 
 ## Features
 
-THe program has built-in help, available via the `-h` or `--help` flag:
+1. **Camera Selection**: Automatically detects and lists all connected UVC cameras
+2. **Dynamic Control Discovery**: Queries each camera to discover available controls and their ranges  
+3. **Real-time Control Adjustment**: Use sliders to adjust camera settings in real-time
+4. **YAML Preset Management**: Save current settings as presets and load them later
+5. **Type-safe Value Handling**: Proper handling of different control data types (int8, int16, boolean, etc.)
 
-~~~~
-usage:
+## Requirements
 
-    ./uvc-util {options/actions/target selection}
+- macOS 10.15 or later
+- Xcode (for building)
+- UVC-compatible USB camera
 
-  Options:
+## Building
 
-    -h/--help                              Show this information
-    -v/--version                           Show the version of the program
-    -k/--keep-running                      Continue processing additional actions despite
-                                           encountering errors
+You can build the application using either Xcode or the command line:
 
-  Actions:
+### Using Xcode
+1. Open `UVCCameraGUI.xcodeproj` in Xcode
+2. Build and run the project (⌘+R)
 
-    -d/--list-devices                      Display a list of all UVC-capable devices
-    -c/--list-controls                     Display a list of UVC controls implemented
+### Using Command Line
+```bash
+make build
+```
 
-    Available after a target device is selected:
+## Usage
 
-    -c/--list-controls                     Display a list of UVC controls available for
-                                           the target device
+1. **Connect Camera**: Connect your UVC camera to the Mac
+2. **Launch Application**: Run the UVCCameraGUI application
+3. **Select Camera**: Choose your camera from the dropdown menu
+4. **Adjust Controls**: Use the sliders to adjust camera settings:
+   - Each control shows current value, minimum, and maximum
+   - Changes are applied in real-time
+5. **Save Preset**: Click "Save Preset" to save current settings to a YAML file
+6. **Load Preset**: Click "Load Preset" to restore settings from a YAML file
 
-    -S <control-name>                      Display available information for the given
-    --show-control=<control-name>          UVC control:  component fields for multi-value
-                                           types, minimum, maximum, resolution, and default
-                                           value when provided:
+## Supported Controls
 
-        pan-tilt-abs {
-          type-description: {
-            signed 32-bit integer            pan;
-            signed 32-bit integer            tilt;
-          },
-          minimum: {pan=-648000,tilt=-648000}
-          maximum: {pan=648000,tilt=648000}
-          step-size: {pan=3600,tilt=3600}
-          default-value: {pan=0,tilt=0}
-        }
+The application supports all standard UVC controls that your camera provides, including:
 
-    -g <control-name>                      Get the value of a control.
-    --get=<control-name>
+- **brightness**: Image brightness adjustment (-64 to 64)
+- **contrast**: Image contrast adjustment (0 to 64) 
+- **saturation**: Color saturation (0 to 128)
+- **hue**: Color hue adjustment (-40 to 40)
+- **white-balance-temp**: White balance temperature (2800 to 6500K)
+- **auto-white-balance-temp**: Enable/disable auto white balance
+- **gain**: Sensor gain (0 to 100)
+- **sharpness**: Image sharpness (0 to 6)
+- **gamma**: Gamma correction (72 to 500)
+- **backlight-compensation**: Backlight compensation (0 to 2)
+- **power-line-frequency**: Power line frequency setting (0 to 2)
 
-    -o <control-name>                      Same as -g/--get, but ONLY the value of the control
-    --get-value=<control-name>             is displayed (no label)
+## Preset File Format
 
-    -s <control-name>=<value>              Set the value of a control; see below for a
-    --set=<control-name>=<value>           description of <value>
+Presets are saved as human-readable YAML files:
 
-    Specifying <value> for -s/--set:
+```yaml
+# UVC Camera Control Preset
+# Generated by UVC Camera GUI
+# Created: Oct 14, 2024 at 3:15:22 PM
 
-      * The string "default" indicates the control should be reset to its default value(s)
-        (if available)
-      * The string "minimum" indicates the control should be reset to its minimum value(s)
-        (if available)
-      * The string "maximum" indicates the control should be reset to its maximum value(s)
-        (if available)
+controls:
+  brightness: 0
+  contrast: 32
+  saturation: 80
+  hue: 0
+  white_balance_temp: 4600
+  auto_white_balance_temp: 1
+  gain: 0
+  sharpness: 2
+  gamma: 100
+  backlight_compensation: 1
+  power_line_frequency: 1
+```
 
-      * Multi-component controls must provide a list of per-component values.  The values may
-        be specified either in the same sequence as shown by the -S/--show-control, or by naming
-        each value.  For example, the "pan-tilt-abs" control has two components, "pan" and
-        "tilt" (in that order), so the following are equivalent:
+## Architecture
 
-            -s pan-tilt-abs="{-3600, 36000}"
-            -s pan-tilt-abs="{tilt=0.52778, pan=-3600}"
+The application consists of several key components:
 
-      * Single-value controls should not use the brace notation, just the component value of the
-        control, for example:
+- **UVCController**: Interface to the existing UVC library for camera communication
+- **MainViewController**: Main UI controller managing camera selection and controls
+- **PresetManager**: Handles saving/loading YAML preset files  
+- **UVCValue/UVCType**: Type-safe value containers for different control data types
 
-            -s brightness=0.5
+## Troubleshooting
 
-      * Component values may be provided as fractional values (in the range [0,1]) if the control
-        provides a value range (can be checked using -S/--show-control).  The value "0.0"
-        corresponds to the minimum, "1.0" to the maximum.
+**No cameras detected:**
+- Ensure your camera is UVC-compatible
+- Try disconnecting and reconnecting the camera
+- Check that the camera isn't being used by another application
 
-      * Component values may use the strings "default," "minimum," or "maximum" to indicate that
-        the component's default, minimum, or maximum value should be used (if the control provides one,
-        can be checked using -S/--show-control)
+**Controls not responding:**
+- Some cameras may have controls that are read-only
+- Try refreshing the camera list
+- Check camera documentation for supported features
 
-            -s pan-tilt-abs="{default,minimum}"
-            -s pan-tilt-abs="{tilt=-648000,pan=default}"
+**Preset loading fails:**
+- Ensure the YAML file format is correct
+- Check that control names match those supported by your camera
+- Some controls may not be available on all cameras
 
-  Methods for selecting the target device:
+## Command Line Tool
 
-    -0
-    --select-none
+The original command-line tool `uvc-util` is still available for scripting:
 
-         Drop the selected target device
-
-    -I <device-index>
-    --select-by-index=<device-index>
-
-         Index of the device in the list of all devices (zero-based)
-
-    -V <vendor-id>:<product-id>
-    --select-by-vendor-and-product-id=<vendor-id>:<product-id>
-
-         Provide the hexadecimal- or integer-valued vendor and product identifier
-         (Prefix hexadecimal values with "0x")
-
-    -L <location-id>
-    --select-by-location-id=<location-id>
-
-         Provide the hexadecimal- or integer-valued USB locationID attribute
-         (Prefix hexadecimal values with "0x")
-
-    -N <device-name>
-    --select-by-name=<device-name>
-
-         Provide the USB product name (e.g. "AV.io HDMI Video")
-
-~~~~
-
-## Build & Run
-
-The source package includes an XCode project file in the top-level directory.  As time goes by — and more releases of XCode are made by Apple — any guarantee of compatibility decreases toward zero.
-
-As an alternative, the code can be built from the command line after XCode has been installed using the `gcc` command it installs on the system.  From the `src` subdirectory of this project:
-
-~~~~
-gcc -o uvc-util -framework IOKit -framework Foundation uvc-util.m UVCController.m UVCType.m UVCValue.m
-~~~~
-
-The executable will be produced in the working directory and can be tested using
-
-~~~~
+```bash
+# List cameras
 ./uvc-util --list-devices
-~~~~
+
+# Show all controls for first camera  
+./uvc-util -I 0 --show-control="*"
+
+# Set brightness
+./uvc-util -I 0 --set brightness=20
+
+# Get current value
+./uvc-util -I 0 --get brightness
+```
+
+## License
+
+This project builds upon the original UVC library code. See individual source files for copyright information.
